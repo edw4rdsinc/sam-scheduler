@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule a Meeting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8F7F4; /* Matching the off-white from edw4rds.com */
+        }
+        .time-slot {
+            transition: all 0.2s ease-in-out;
+        }
+        .time-slot.selected {
+            background-color: #000000;
+            color: white;
+            border-color: #000000;
+        }
+        .time-slot:not(.disabled):hover {
+            border-color: #000000;
+            color: #000000;
+        }
+        .disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background-color: #f3f4f6;
+            border-color: #e5e7eb;
+        }
+        .view {
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+        }
+        .view.hidden {
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+            position: absolute;
+        }
+        .calendar-day.selected {
+            background-color: #000000;
+            color: white;
+        }
+        .schedule-btn {
+            border: 1px solid black;
+            transition: all 0.2s ease-in-out;
+        }
+        .schedule-btn:hover {
+            background-color: #000000;
+            color: white;
+        }
+        select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000000%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 0.65em auto;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <div class="container mx-auto max-w-4xl bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div class="grid grid-cols-1 md:grid-cols-3">
+            <!-- Left Panel: Event Details -->
+            <div class="p-6 md:p-8 border-b md:border-b-0 md:border-r border-gray-200">
+                <h2 id="event-host" class="text-gray-500 font-medium uppercase tracking-wider text-sm">Sam Edwards</h2>
+                
+                <!-- Meeting Type Dropdown -->
+                <div class="mt-4">
+                    <label for="meeting-type" class="block text-sm font-medium text-gray-700 mb-1">Meeting Type</label>
+                    <select id="meeting-type" class="block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"></select>
+                </div>
+
+                <div class="flex items-center text-gray-500 space-x-2 mt-4">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span id="event-duration"></span>
+                </div>
+                 <div id="booking-confirmation-details" class="hidden mt-8 text-gray-800">
+                    <p class="font-semibold text-lg text-green-600 mb-2 flex items-center space-x-2">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>Event Scheduled</span>
+                    </p>
+                    <p id="confirmed-time" class="font-medium text-gray-700 pl-8"></p>
+                    <p class="text-sm text-gray-500 mt-4 pl-8">A calendar invitation has been sent to your email address.</p>
+                </div>
+            </div>
+
+            <!-- Right Panel: Views -->
+            <div class="md:col-span-2 p-6 md:p-8 relative">
+                <!-- View 1: Calendar & Time Slot Selection -->
+                <div id="date-time-view" class="view">
+                    <h3 class="text-xl font-semibold mb-4 text-black">Select a Date & Time</h3>
+                    <div class="flex items-center justify-between mb-4">
+                        <button id="prev-month" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                            <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <h2 id="current-month" class="text-lg font-semibold text-gray-700 w-40 text-center"></h2>
+                        <button id="next-month" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                            <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </button>
+                    </div>
+                    <div id="calendar" class="grid grid-cols-7 gap-1 sm:gap-2 text-center mb-6"></div>
+                    <div id="time-slots-container" class="opacity-0 transition-opacity duration-300">
+                        <div id="time-slots" class="grid grid-cols-3 sm:grid-cols-4 gap-3 max-h-48 overflow-y-auto pr-2"></div>
+                    </div>
+                </div>
+
+                <!-- View 2: Booking Form -->
+                <div id="form-view" class="view hidden w-full h-full bg-white p-6 md:p-8">
+                     <button id="back-to-calendar" class="mb-6 text-sm font-medium text-gray-600 hover:text-black flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                        <span>Back</span>
+                    </button>
+                    <h3 id="form-title" class="text-xl font-semibold mb-1 text-black">Enter Details</h3>
+                    <p id="selected-date-time-display" class="text-gray-500 mb-6"></p>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700">Name *</label>
+                            <input type="text" id="name" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent">
+                        </div>
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700">Email *</label>
+                            <input type="email" id="email" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent">
+                        </div>
+                        <button id="schedule-event-btn" class="w-full schedule-btn bg-white text-black font-semibold py-3 px-4 rounded-lg">
+                            Schedule Event
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const serverlessFunctionUrl = "/api/schedule";
+        const meetingTypes = [
+            { id: '30min', title: '30 Minute Meeting', duration: 30 },
+            { id: '60min', title: '60 Minute Meeting', duration: 60 },
+            { id: 'intro', title: 'Introductory Call', duration: 15 },
+        ];
+        const mockTimeSlots = ["09:00", "09:30", "10:00", "10:30", "11:00", "14:00", "14:30", "15:00"];
+
+        // --- STATE ---
+        let currentDate = new Date();
+        let selectedDate = null;
+        let selectedTime = null;
+        let selectedMeetingType = meetingTypes[0];
+
+        // --- DOM ELEMENTS ---
+        const dateTimeView = document.getElementById('date-time-view');
+        const formView = document.getElementById('form-view');
+        const calendarEl = document.getElementById('calendar');
+        const currentMonthEl = document.getElementById('current-month');
+        const timeSlotsContainer = document.getElementById('time-slots-container');
+        const timeSlotsEl = document.getElementById('time-slots');
+        const selectedDateTimeDisplay = document.getElementById('selected-date-time-display');
+        const backToCalendarBtn = document.getElementById('back-to-calendar');
+        const scheduleEventBtn = document.getElementById('schedule-event-btn');
+        const bookingConfirmationDetails = document.getElementById('booking-confirmation-details');
+        const confirmedTimeEl = document.getElementById('confirmed-time');
+        const meetingTypeSelect = document.getElementById('meeting-type');
+        const eventDurationEl = document.getElementById('event-duration');
+        const formTitleEl = document.getElementById('form-title');
+
+        // --- FUNCTIONS ---
+
+        function updateMeetingDetails() {
+            selectedMeetingType = meetingTypes.find(mt => mt.id === meetingTypeSelect.value);
+            eventDurationEl.textContent = `${selectedMeetingType.duration} min`;
+            formTitleEl.textContent = `Enter Details for ${selectedMeetingType.title}`;
+        }
+        
+        function populateMeetingTypes() {
+            meetingTypes.forEach(mt => {
+                const option = document.createElement('option');
+                option.value = mt.id;
+                option.textContent = mt.title;
+                meetingTypeSelect.appendChild(option);
+            });
+            updateMeetingDetails();
+        }
+
+        function switchView(viewToShow) {
+            [dateTimeView, formView].forEach(view => {
+                view.classList.add('hidden');
+            });
+            viewToShow.classList.remove('hidden');
+            if (viewToShow === formView) {
+                viewToShow.style.position = 'relative';
+            } else {
+                 formView.style.position = 'absolute';
+            }
+        }
+
+        function renderCalendar() {
+            calendarEl.innerHTML = '';
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            currentMonthEl.textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${year}`;
+
+            const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+            dayNames.forEach(day => {
+                const dayEl = document.createElement('div');
+                dayEl.className = 'font-semibold text-gray-400 text-xs sm:text-sm py-2';
+                dayEl.textContent = day;
+                calendarEl.appendChild(dayEl);
+            });
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            for (let i = 0; i < firstDay; i++) {
+                calendarEl.appendChild(document.createElement('div'));
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayEl = document.createElement('button');
+                dayEl.textContent = day;
+                const date = new Date(year, month, day);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                if (date < today) {
+                    dayEl.className = 'p-2 text-gray-300 cursor-not-allowed w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center';
+                    dayEl.disabled = true;
+                } else {
+                    dayEl.className = 'calendar-day p-2 rounded-full hover:bg-gray-100 transition-colors w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center';
+                    dayEl.onclick = () => selectDate(date);
+                }
+                
+                if (selectedDate && date.toDateString() === selectedDate.toDateString()) {
+                    dayEl.classList.add('selected');
+                }
+                
+                calendarEl.appendChild(dayEl);
+            }
+        }
+
+        function selectDate(date) {
+            selectedDate = date;
+            selectedTime = null;
+            renderCalendar();
+            renderTimeSlots();
+            timeSlotsContainer.style.opacity = 1;
+        }
+
+        function renderTimeSlots() {
+            timeSlotsEl.innerHTML = '';
+            if (!selectedDate) return;
+
+            mockTimeSlots.forEach(time => {
+                const slotEl = document.createElement('button');
+                slotEl.className = 'time-slot p-3 border-2 border-gray-200 rounded-lg text-sm font-semibold text-gray-700';
+                slotEl.textContent = new Date(`1970-01-01T${time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+                slotEl.onclick = () => selectTime(time);
+                timeSlotsEl.appendChild(slotEl);
+            });
+        }
+
+        function selectTime(time) {
+            selectedTime = time;
+            const bookingDateTime = new Date(`${selectedDate.toISOString().split('T')[0]}T${selectedTime}`);
+            selectedDateTimeDisplay.textContent = bookingDateTime.toLocaleString('en-US', { 
+                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' 
+            });
+            switchView(formView);
+        }
+        
+        async function handleScheduleEvent() {
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+
+            if (!name || !email) {
+                alert('Please fill in all required fields.');
+                return;
+            }
+
+            const bookingData = {
+                dateTime: new Date(`${selectedDate.toISOString().split('T')[0]}T${selectedTime}`).toISOString(),
+                name: name,
+                email: email,
+                duration: selectedMeetingType.duration,
+                title: selectedMeetingType.title
+            };
+
+            scheduleEventBtn.textContent = "Scheduling...";
+            scheduleEventBtn.disabled = true;
+
+            try {
+                const response = await fetch(serverlessFunctionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(bookingData),
+                });
+
+                if (!response.ok) {
+                    const errorResult = await response.json();
+                    throw new Error(errorResult.message || 'An unknown error occurred.');
+                }
+
+                confirmedTimeEl.textContent = selectedDateTimeDisplay.textContent;
+                bookingConfirmationDetails.classList.remove('hidden');
+                switchView(dateTimeView);
+                timeSlotsContainer.style.opacity = 0;
+
+            } catch (error) {
+                console.error('Booking failed:', error);
+                alert(`Booking failed: ${error.message}`);
+            } finally {
+                scheduleEventBtn.textContent = "Schedule Event";
+                scheduleEventBtn.disabled = false;
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        document.getElementById('prev-month').onclick = () => {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderCalendar();
+        };
+
+        document.getElementById('next-month').onclick = () => {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderCalendar();
+        };
+
+        backToCalendarBtn.onclick = () => {
+            switchView(dateTimeView);
+        };
+
+        scheduleEventBtn.onclick = handleScheduleEvent;
+        
+        meetingTypeSelect.onchange = updateMeetingDetails;
+
+        // --- INITIAL RENDER ---
+        populateMeetingTypes();
+        renderCalendar();
+    </script>
+</body>
+</html>
